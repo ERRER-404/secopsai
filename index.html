@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecOpsAI: secure Dockerfiles, CI/CD and Ansible for legacy code</title>
+<meta name="description" content="SecOpsAI reads your legacy codebase and writes a hardened Dockerfile, a CI/CD pipeline with security scans, and an Ansible playbook to ship it. It flags what it can't decide so a human can.">
+<link rel="canonical" href="https://secopsai.duckdns.org/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://secopsai.duckdns.org/">
+<meta property="og:title" content="SecOpsAI: secure delivery for legacy code">
+<meta property="og:description" content="An AI agent that reads legacy codebases and writes the Dockerfile, CI/CD pipeline and Ansible playbook to ship them securely.">
+<meta name="theme-color" content="#1B2630">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EEF1EC;
+    --panel:#FAFBF8;
+    --ink:#1B2630;
+    --ink-soft:#4B5963;
+    --rule:#CDD4CC;
+    --signal:#1F4FE0;
+    --signal-soft:#DDE6FB;
+    --flag:#B8620B;
+    --flag-soft:#F7E6D0;
+    --ok:#2C7A4B;
+    --code-bg:#17212A;
+    --code-ink:#DCE5EA;
+    --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  :focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:4px}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+
+  /* nav */
+  header.top{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{font-weight:700;font-size:20px;letter-spacing:-.02em;text-decoration:none;display:flex;align-items:center;gap:10px}
+  .brand svg{display:block}
+  nav a{margin-left:26px;text-decoration:none;color:var(--ink-soft);font-size:15px;font-weight:500}
+  nav a:hover{color:var(--ink)}
+  nav a.pill{color:var(--paper);background:var(--ink);padding:9px 16px;border-radius:999px}
+  nav a.pill:hover{background:var(--signal);color:#fff}
+
+  /* hero */
+  .hero{padding:56px 0 40px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;align-items:start}
+  h1{font-size:clamp(38px,5.2vw,62px);line-height:1.02;letter-spacing:-.035em;margin:0 0 22px;font-weight:700}
+  .lede{font-size:19px;color:var(--ink-soft);max-width:30em;margin:0 0 30px}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-block;font:600 16px var(--sans);padding:14px 22px;border-radius:10px;border:0;cursor:pointer;text-decoration:none;background:var(--signal);color:#fff}
+  .btn:hover{background:#173DB5}
+  .btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+  .btn.ghost:hover{background:var(--ink);color:var(--paper)}
+  .status{margin-top:26px;font-size:14px;color:var(--ink-soft);display:flex;align-items:center;gap:10px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(44,122,75,.5);animation:pulse 2.4s infinite}
+  @keyframes pulse{70%{box-shadow:0 0 0 9px rgba(44,122,75,0)}100%{box-shadow:0 0 0 0 rgba(44,122,75,0)}}
+
+  /* demo */
+  .demo{background:var(--panel);border:1.5px solid var(--ink);border-radius:14px;overflow:hidden;box-shadow:8px 8px 0 var(--ink)}
+  .demo-bar{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1.5px solid var(--ink);font:500 13px var(--mono);background:var(--paper)}
+  .demo-bar span:last-child{color:var(--ink-soft)}
+  .demo-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
+  .survey{padding:16px;border-right:1.5px solid var(--ink);min-height:420px}
+  .survey h3{font-size:14px;margin:0 0 12px;font-weight:600}
+  .findings{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .findings li{font-size:14px;line-height:1.4;padding:9px 11px;border-radius:8px;background:var(--signal-soft);border-left:4px solid var(--signal);opacity:0;transform:translateY(6px)}
+  .findings li.flag{background:var(--flag-soft);border-left-color:var(--flag)}
+  .findings li.in{opacity:1;transform:none;transition:opacity .35s,transform .35s}
+  .findings b{display:block;font-weight:600}
+  .findings .tag{font:500 12px var(--mono);color:var(--ink-soft)}
+  .out{display:flex;flex-direction:column;min-width:0}
+  .tabs{display:flex;border-bottom:1.5px solid var(--ink);overflow-x:auto}
+  .tabs button{flex:1 0 auto;font:500 13px var(--mono);padding:11px 14px;background:var(--paper);border:0;border-right:1.5px solid var(--ink);cursor:pointer;color:var(--ink-soft);white-space:nowrap}
+  .tabs button:last-child{border-right:0}
+  .tabs button[aria-selected="true"]{background:var(--code-bg);color:var(--code-ink)}
+  pre.code{margin:0;background:var(--code-bg);color:var(--code-ink);font:400 12.5px/1.65 var(--mono);padding:16px;flex:1;overflow:auto;min-height:370px;max-height:420px;white-space:pre}
+  .demo-foot{padding:10px 16px;border-top:1.5px solid var(--ink);font-size:13px;color:var(--ink-soft);background:var(--paper)}
+
+  /* sections */
+  section{padding:84px 0}
+  section.band{background:var(--panel);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  h2{font-size:clamp(28px,3.6vw,42px);line-height:1.1;letter-spacing:-.03em;margin:0 0 18px;max-width:18em}
+  .sub{color:var(--ink-soft);max-width:36em;margin:0 0 44px;font-size:18px}
+
+  .steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:0;counter-reset:s;border-top:1.5px solid var(--ink)}
+  .steps li{counter-increment:s;padding:22px 22px 4px 0}
+  .steps li + li{padding-left:22px;border-left:1px solid var(--rule)}
+  .steps li::before{content:counter(s);display:block;font:500 14px var(--mono);color:var(--signal);margin-bottom:10px}
+  .steps h3{font-size:19px;margin:0 0 8px;letter-spacing:-.01em}
+  .steps p{margin:0;color:var(--ink-soft);font-size:15.5px}
+
+  .outputs{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+  .outputs article{border-top:3px solid var(--ink);padding-top:16px}
+  .outputs h3{margin:0 0 4px;font-size:21px;letter-spacing:-.015em}
+  .outputs .file{font:500 13px var(--mono);color:var(--signal);margin-bottom:12px;display:block}
+  .outputs p{margin:0 0 10px;color:var(--ink-soft);font-size:15.5px}
+
+  .stacks{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}
+  .stacks li{font:500 14px var(--mono);padding:8px 14px;border:1.5px solid var(--ink);border-radius:999px;background:var(--paper)}
+  .stacks li.soon{border-style:dashed;color:var(--ink-soft);border-color:var(--ink-soft)}
+
+  .principles{display:grid;grid-template-columns:1fr 1fr;gap:56px}
+  .principles h3{margin:0 0 6px;font-size:20px}
+  .principles p{margin:0 0 28px;color:var(--ink-soft)}
+
+  /* signup */
+  .signup{background:var(--ink);color:var(--paper);border-radius:18px;padding:56px;display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:center}
+  .signup h2{color:var(--paper);margin-bottom:12px}
+  .signup p{margin:0;color:#B9C4CB}
+  .signup form{display:grid;gap:12px}
+  label{font-size:14px;font-weight:600}
+  input[type=email],input[type=text],select{width:100%;font:400 16px var(--sans);padding:13px 14px;border-radius:9px;border:1.5px solid #5C6B76;background:#222F39;color:#fff;margin-top:6px}
+  input::placeholder{color:#8695A0}
+  .signup .btn{width:100%;margin-top:4px}
+  .fine{font-size:13px;color:#8FA0AB !important}
+  #msg{font-weight:600;color:#9FE0B8;min-height:1.4em}
+
+  details{border-top:1px solid var(--rule);padding:18px 0}
+  details:last-of-type{border-bottom:1px solid var(--rule)}
+  summary{cursor:pointer;font-weight:600;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";font:400 24px/1 var(--mono);color:var(--signal)}
+  details[open] summary::after{content:"\2212"}
+  details p{margin:12px 0 0;color:var(--ink-soft);max-width:42em}
+
+  footer{padding:44px 0 56px;font-size:14px;color:var(--ink-soft)}
+  footer .row{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+  @media (max-width:980px){
+    .hero{grid-template-columns:1fr}
+    .steps{grid-template-columns:1fr 1fr}
+    .steps li:nth-child(3){padding-left:0;border-left:0}
+    .outputs,.principles{grid-template-columns:1fr}
+    .signup{grid-template-columns:1fr;padding:36px 26px}
+  }
+  @media (max-width:640px){
+    body{font-size:16px}
+    nav a:not(.pill){display:none}
+    .demo-body{grid-template-columns:1fr}
+    .survey{border-right:0;border-bottom:1.5px solid var(--ink);min-height:0}
+    .steps{grid-template-columns:1fr}
+    .steps li + li{padding-left:0;border-left:0;border-top:1px solid var(--rule);margin-top:18px;padding-top:18px}
+    section{padding:60px 0}
+    .demo{box-shadow:5px 5px 0 var(--ink)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .dot{animation:none}
+    .findings li{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top" aria-label="SecOpsAI home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6" fill="#1B2630"/><path d="M6 9h7a3 3 0 0 1 3 3v2a3 3 0 0 0 3 3h1" stroke="#EEF1EC" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="6" cy="9" r="1.8" fill="#6F93FF"/><circle cx="20" cy="17" r="1.8" fill="#6F93FF"/></svg>
+      SecOpsAI
+    </a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#outputs">What you get</a>
+      <a href="#faq">FAQ</a>
+      <a class="pill" href="#access">Request access</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="hero">
+      <div>
+        <h1>Put legacy code on a secure delivery pipeline.</h1>
+        <p class="lede">Point SecOpsAI at a legacy repository. It reads the build files, runtime and config, then writes a hardened Dockerfile, a CI/CD pipeline with security scans, and an Ansible playbook to deploy it. Anything it can't safely decide is flagged for you.</p>
+        <div class="cta-row">
+          <a class="btn" href="#access">Request early access</a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+        <p class="status"><span class="dot" aria-hidden="true"></span> Private beta: onboarding teams in small batches</p>
+      </div>
+
+      <div class="demo" aria-label="Example SecOpsAI run on a legacy Java project">
+        <div class="demo-bar"><span>billing-portal/</span><span>sample run</span></div>
+        <div class="demo-body">
+          <div class="survey">
+            <h3>What SecOpsAI found</h3>
+            <ul class="findings" id="findings" aria-live="polite">
+              <li><b>Ant build, Java 6 target</b><span class="tag">build.xml</span></li>
+              <li><b>Servlet 2.5 WAR on Tomcat 6</b><span class="tag">WEB-INF/web.xml</span></li>
+              <li><b>Oracle JDBC driver in lib/</b><span class="tag">lib/ojdbc6.jar</span></li>
+              <li class="flag"><b>Database password committed</b><span class="tag">conf/app.properties:14. Moved to an env var; rotate it.</span></li>
+              <li class="flag"><b>Needs a human: Java 6 end of life</b><span class="tag">Built on JDK 8 for now. Test before you cut over.</span></li>
+            </ul>
+          </div>
+          <div class="out">
+            <div class="tabs" role="tablist" aria-label="Generated files">
+              <button role="tab" aria-selected="true" data-k="docker" id="t-docker" aria-controls="codeview">Dockerfile</button>
+              <button role="tab" aria-selected="false" data-k="ci" id="t-ci" aria-controls="codeview">ci.yml</button>
+              <button role="tab" aria-selected="false" data-k="ansible" id="t-ansible" aria-controls="codeview">deploy.yml</button>
+            </div>
+            <pre class="code" id="codeview" role="tabpanel" tabindex="0" aria-labelledby="t-docker"></pre>
+          </div>
+        </div>
+        <div class="demo-foot">Illustrative output. Real runs are reviewed as a pull request, never pushed straight to production.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2>From unfamiliar repo to reviewable pull request</h2>
+    <p class="sub">SecOpsAI works the way a careful new hire would: read first, change nothing, then propose.</p>
+    <ol class="steps">
+      <li><h3>Read</h3><p>Connect a repository read-only. SecOpsAI maps build tools, runtimes, dependencies, config files and how the app starts.</p></li>
+      <li><h3>Explain</h3><p>You get a plain-language survey: what the app is, what it needs to run, and what looks risky or outdated.</p></li>
+      <li><h3>Generate</h3><p>It writes the container, pipeline and deployment files, and builds the image in a sandbox to check it actually starts.</p></li>
+      <li><h3>Hand off</h3><p>Everything arrives as a pull request with comments on each decision and a list of open questions for your team.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="band" id="outputs">
+  <div class="wrap">
+    <h2>Three files, written to match your code</h2>
+    <p class="sub">Output follows what your repository does today, not a generic template. You can read it, edit it, and keep it.</p>
+    <div class="outputs">
+      <article>
+        <h3>Dockerfile</h3>
+        <span class="file">Dockerfile, .dockerignore</span>
+        <p>Multi-stage builds on the runtime version your code needs, with secrets kept out of the image and a non-root user.</p>
+        <p>Includes a health check and a pinned base image.</p>
+      </article>
+      <article>
+        <h3>CI/CD pipeline</h3>
+        <span class="file">.github/workflows/ci.yml, .gitlab-ci.yml</span>
+        <p>Build, test, secret-scan, dependency-scan, image-scan and publish steps, using the commands your project already has.</p>
+        <p>If tests don't exist or don't pass, the pipeline says so rather than hiding it.</p>
+      </article>
+      <article>
+        <h3>Ansible playbook</h3>
+        <span class="file">deploy.yml, inventory/, roles/</span>
+        <p>Idempotent playbooks that deploy the container to the servers you already run, with a rollback task.</p>
+        <p>Variables for each environment, ready for Ansible Vault.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Built for old code, not demo repos</h2>
+    <p class="sub">Starting with the stacks that show up in long-lived business systems.</p>
+    <ul class="stacks" aria-label="Supported stacks">
+      <li>Java: Ant, Maven, Gradle</li>
+      <li>.NET Framework</li>
+      <li>PHP 5 to 8</li>
+      <li>Python 2 to 3</li>
+      <li>Ruby on Rails</li>
+      <li class="soon">COBOL (exploring)</li>
+      <li class="soon">Perl (exploring)</li>
+    </ul>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap principles">
+    <div>
+      <h3>It tells you what it doesn't know</h3>
+      <p>Hardcoded paths, undocumented services and missing tests are listed as open questions. SecOpsAI doesn't guess and move on.</p>
+      <h3>Your code stays yours</h3>
+      <p>Repositories are read-only, analysis runs in an isolated sandbox, and you can request deletion of everything at any time.</p>
+    </div>
+    <div>
+      <h3>No lock-in</h3>
+      <p>The output is plain Docker, YAML and Ansible. Stop using SecOpsAI tomorrow and every file still works.</p>
+      <h3>A person approves every change</h3>
+      <p>Nothing is merged or deployed automatically. SecOpsAI opens pull requests; your team decides.</p>
+    </div>
+  </div>
+</section>
+
+<section id="access">
+  <div class="wrap">
+    <div class="signup">
+      <div>
+        <h2>Get early access</h2>
+        <p>We're onboarding a small number of teams with legacy systems to modernize. Tell us what you're running and we'll be in touch.</p>
+      </div>
+      <form id="form" novalidate>
+        <div>
+          <label for="email">Work email</label>
+          <input type="email" id="email" name="email" placeholder="you@company.com" required autocomplete="email">
+        </div>
+        <div>
+          <label for="stack">Main legacy stack</label>
+          <select id="stack" name="stack">
+            <option>Java</option><option>.NET Framework</option><option>PHP</option><option>Python</option><option>Ruby</option><option>Something else</option>
+          </select>
+        </div>
+        <button class="btn" type="submit">Request access</button>
+        <div id="msg" role="status"></div>
+        <p class="fine">One email when your spot opens. No newsletter.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="padding-top:20px">
+  <div class="wrap">
+    <h2>Questions</h2>
+    <details><summary>Does it change my code?</summary><p>No. SecOpsAI only adds new files (Dockerfile, pipeline config, playbooks) in a separate branch and opens a pull request. Your existing source is left alone.</p></details>
+    <details><summary>Which CI systems and clouds does it support?</summary><p>GitHub Actions and GitLab CI to start, with Jenkins next. Ansible targets any host reachable over SSH, so it works with on-prem servers and any cloud VM.</p></details>
+    <details><summary>Can I trust AI-generated infrastructure code?</summary><p>Treat it like code from a colleague: review it. SecOpsAI builds the image and runs your tests in a sandbox before proposing anything, and annotates each decision so review is quick.</p></details>
+    <details><summary>Where does my code go?</summary><p>It's read in an isolated environment for the length of the analysis and is not used to train models. You can have your data deleted whenever you want.</p></details>
+    <details><summary>What does it cost?</summary><p>Pricing isn't final. Early-access teams get a say in it. Tell us what you need when you sign up.</p></details>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <div class="row">
+      <span>&copy; 2026 SecOpsAI</span>
+      <span>secopsai.duckdns.org</span>
+    </div>
+  </footer>
+</div>
+
+<script type="text/plain" id="src-docker"># Generated by SecOpsAI from build.xml and WEB-INF/web.xml
+# Review notes are marked REVIEW.
+
+FROM eclipse-temurin:8-jdk AS build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ant \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+# build.xml targets Java 6; compiled here on JDK 8 with -source 1.6
+RUN ant -Dbuild.env=ci dist
+
+FROM tomcat:8.5-jre8
+RUN rm -rf /usr/local/tomcat/webapps/*
+COPY --from=build /src/dist/billing-portal.war \
+     /usr/local/tomcat/webapps/ROOT.war
+
+# REVIEW: db.password was committed in conf/app.properties.
+# It is now read from the environment. Rotate the old value.
+ENV DB_URL="" DB_USER="" DB_PASSWORD=""
+
+RUN useradd -r tomcat && chown -R tomcat /usr/local/tomcat
+USER tomcat
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s \
+  CMD curl -fs http://localhost:8080/health || exit 1
+</script>
+
+<script type="text/plain" id="src-ci"># Generated by SecOpsAI
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+      - name: Build
+        run: ant -Dbuild.env=ci dist
+      # REVIEW: no test target found in build.xml.
+      # Add one, or this job only proves the code compiles.
+      - name: Test
+        run: ant test || echo "No tests defined"
+      - name: Build image
+        run: docker build -t billing-portal:${{ github.sha }} .
+      - name: Scan image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: billing-portal:${{ github.sha }}
+          severity: CRITICAL,HIGH
+</script>
+
+<script type="text/plain" id="src-ansible"># Generated by SecOpsAI
+- name: Deploy billing-portal
+  hosts: billing
+  become: true
+  vars:
+    image: "registry.example.com/billing-portal"
+    tag: "{{ release_tag }}"
+  tasks:
+    - name: Pull the new image
+      community.docker.docker_image:
+        name: "{{ image }}"
+        tag: "{{ tag }}"
+        source: pull
+
+    - name: Run the container
+      community.docker.docker_container:
+        name: billing-portal
+        image: "{{ image }}:{{ tag }}"
+        state: started
+        restart_policy: unless-stopped
+        published_ports: ["8080:8080"]
+        env:
+          DB_URL: "{{ vault_db_url }}"
+          DB_USER: "{{ vault_db_user }}"
+          DB_PASSWORD: "{{ vault_db_password }}"
+
+    - name: Wait for the health check
+      ansible.builtin.uri:
+        url: http://localhost:8080/health
+      register: health
+      retries: 10
+      delay: 6
+      until: health.status == 200
+      # On failure, run rollback.yml with the previous tag.
+</script>
+
+<script>
+(function(){
+  // Tabs
+  var view = document.getElementById('codeview');
+  var tabs = document.querySelectorAll('.tabs button');
+  function show(k){
+    tabs.forEach(function(t){
+      var on = t.dataset.k === k;
+      t.setAttribute('aria-selected', on);
+      if(on) view.setAttribute('aria-labelledby', t.id);
+    });
+    view.textContent = document.getElementById('src-' + k).textContent.replace(/^\n/, '');
+    view.scrollTop = 0;
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ show(t.dataset.k); }); });
+  show('docker');
+
+  // One orchestrated moment: findings appear in sequence
+  var items = document.querySelectorAll('#findings li');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  items.forEach(function(li, i){
+    if(reduce){ li.classList.add('in'); return; }
+    setTimeout(function(){ li.classList.add('in'); }, 500 + i * 650);
+  });
+
+  // Waitlist form.
+  // Posts to server.py (/api/waitlist), which stores signups in signups.jsonl.
+  var ENDPOINT = '/api/waitlist';
+  var form = document.getElementById('form');
+  var msg = document.getElementById('msg');
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = document.getElementById('email').value.trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+      msg.style.color = '#FFB4A8';
+      msg.textContent = 'Enter a valid work email address.';
+      return;
+    }
+    var payload = { email: email, stack: document.getElementById('stack').value };
+    function done(){
+      msg.style.color = '#9FE0B8';
+      msg.textContent = 'You\u2019re on the list. We\u2019ll email you when your spot opens.';
+      form.reset();
+    }
+    if(!ENDPOINT){ done(); return; }
+    fetch(ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      .then(function(r){ if(!r.ok) throw new Error(); done(); })
+      .catch(function(){
+        msg.style.color = '#FFB4A8';
+        msg.textContent = 'Something went wrong. Please try again in a few minutes.';
+      });
+  });
+})();
+</script>
+</body>
+</html>
